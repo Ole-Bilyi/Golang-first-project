@@ -1,6 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     margin: 20px;
+    background-color: green;
 }
 
 h1 {
@@ -8,7 +9,7 @@ h1 {
 }
 
 table {
-    width: 100%;
+    width: 60%;
     border-collapse: collapse;
     margin-top: 20px;
 }
