@@ -1,25 +1,86 @@
+/* General Body Styling */
 body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-    background-color: green;
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f8f5;
+    color: #2c3e50;
 }
 
+/* Header Styling */
 h1 {
-    color: #333;
+    color: #2e8b57;
+    text-align: center;
+    margin: 20px 0;
+    font-size: 2.5rem;
+    font-weight: bold;
 }
 
+/* Table Styling */
 table {
-    width: 60%;
+    width: 90%;
+    margin: 20px auto;
     border-collapse: collapse;
-    margin-top: 20px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
 }
 
 th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
+    padding: 12px 15px;
     text-align: left;
+    border-bottom: 1px solid #ddd;
 }
 
 th {
-    background-color: #f4f4f4;
+    background-color: #2e8b57;
+    color: #ffffff;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+
+td {
+    color: #34495e;
+    font-size: 0.95rem;
+}
+
+tr:hover {
+    background-color: #e6f4eb;
+}
+
+/* Button Styling */
+button {
+    display: inline-block;
+    margin: 10px auto;
+    padding: 10px 20px;
+    font-size: 1rem;
+    color: #ffffff;
+    background-color: #2e8b57;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+    background-color: #228b22;
+    transform: scale(1.05);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+
+    table {
+        width: 100%;
+    }
+
+    th, td {
+        padding: 10px;
+    }
 }
