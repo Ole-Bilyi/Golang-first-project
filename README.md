@@ -1,3 +1,3 @@
 # Golang-first-project
-Idea:
+**Idea:**<br/>
 Something like telegram
