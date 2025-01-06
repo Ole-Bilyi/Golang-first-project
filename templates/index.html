@@ -7,23 +7,12 @@
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h1>Database Records</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .}}
-            <tr>
-                <td>{{.ID}}</td>
-                <td>{{.Names}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
+    <div id="profile"></div>
+    <div id="settings"></div>
+    <div id="list"></div>
+    <div id="information"></div>
+    <div id="messages"></div>
+    <div id="typing"></div>
     <button onclick="window.location.reload()">Refresh</button>
 </body>
 </html>
