@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8" />
+    <title>Lista pytań - Admin</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<h1>Lista pytań</h1>
+<a href="/admin/questions/new">Dodaj nowe pytanie</a>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Pytanie (A)</th>
+            <th>Podpowiedź (B)</th>
+            <th>Podpowiedź (C)</th>
+            <th>Odpowiedź</th>
+            <th>Akcje</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .}}
+        <tr>
+            <td>{{.ID}}</td>
+            <td>{{.TextA}}</td>
+            <td>{{.HintB}}</td>
+            <td>{{.HintC}}</td>
+            <td>{{.Answer}}</td>
+            <td>
+                <a href="/admin/questions/{{.ID}}/edit">Edytuj</a> |
+                <form style="display:inline" method="POST" action="/admin/questions/{{.ID}}/delete" onsubmit="return confirm('Na pewno usunąć?');">
+                    <button type="submit">Usuń</button>
+                </form>
+            </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6">Brak pytań.</td></tr>
+        {{end}}
+    </tbody>
+</table>
+</body>
+</html>

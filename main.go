@@ -99,6 +99,8 @@ func main() {
 		}
 	}
 
+	log.Printf("Using database at: %s", dbPath)
+
 	// Open database connection
 	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -115,6 +117,7 @@ func main() {
 	if err = db.Ping(); err != nil {
 		log.Fatal("Failed to ping database:", err)
 	}
+	log.Println("Successfully connected to database")
 
 	// Create table if not exists
 	createTable := `
@@ -132,12 +135,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("Database table checked/created")
 
 	// Parse templates
 	tmpl, err = template.ParseFiles("templates/index.html")
 	if err != nil {
 		log.Fatal("Failed to parse template:", err)
 	}
+	log.Println("Templates parsed successfully")
 
 	r := mux.NewRouter()
 
@@ -149,12 +154,9 @@ func main() {
 	// Serve admin page
 	r.HandleFunc("/", adminPageHandler).Methods("GET")
 
-	// Serve static CSS with cache headers
-	staticHandler := http.StripPrefix("/static/", http.FileServer(http.Dir("static")))
-	r.PathPrefix("/static/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
-		staticHandler.ServeHTTP(w, r)
-	}))
+	// Serve static files
+	fs := http.FileServer(http.Dir("static"))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
 
 	// API endpoints
 	api := r.PathPrefix("/api").Subrouter()
@@ -164,8 +166,15 @@ func main() {
 	api.HandleFunc("/questions/{id}", deleteQuestionHandler).Methods("DELETE")
 	api.HandleFunc("/search", searchQuestionsHandler).Methods("POST")
 
+	// Get port from environment variable or use default
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := ":" + port
+
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         addr,
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -174,7 +183,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Println("Server started on http://localhost:8080")
+		log.Printf("Server starting on http://0.0.0.0%s", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}

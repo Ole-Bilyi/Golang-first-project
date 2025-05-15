@@ -10,4 +10,12 @@ services:
     disk:
       name: quiz-data
       mountPath: /data
-      sizeGB: 1 
+      sizeGB: 1
+    healthCheckPath: /
+    autoDeploy: true
+    numInstances: 1
+    domains:
+      - quiz-app.onrender.com
+    envVars:
+      - key: PORT
+        value: "8080" 
