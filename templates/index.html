@@ -1,18 +1,302 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Records</title>
-    <link rel="stylesheet" href="/static/styles.css">
+<meta charset="UTF-8" />
+<title>Admin Panel - Quiz 1 z 10</title>
+<link rel="stylesheet" href="/static/styles.css" />
+<style>
+.error-message {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+    display: none;
+}
+.success-message {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+    display: none;
+}
+
+.search-container {
+    background: white;
+    padding: 15px;
+    margin: 20px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.search-container select, .search-container input {
+    padding: 5px;
+    margin-right: 10px;
+}
+</style>
 </head>
 <body>
-    <div id="profile"></div>
-    <div id="settings"></div>
-    <div id="list"></div>
-    <div id="information"></div>
-    <div id="messages"></div>
-    <div id="typing"></div>
-    <button onclick="window.location.reload()">Refresh</button>
+<h1>Panel administracyjny - pytania</h1>
+
+<div id="errorMessage" class="error-message"></div>
+<div id="successMessage" class="success-message"></div>
+
+<div class="search-container">
+    <h3>Wyszukiwanie</h3>
+    <select id="searchField">
+        <option value="text_a">Pytanie (A)</option>
+        <option value="hint_b">Podpowiedź (B)</option>
+        <option value="hint_c">Podpowiedź (C)</option>
+        <option value="answer">Odpowiedź</option>
+    </select>
+    <input type="text" id="searchText" placeholder="Wpisz tekst do wyszukania..." />
+    <select id="orderDir">
+        <option value="ASC">Rosnąco</option>
+        <option value="DESC">Malejąco</option>
+    </select>
+    <input type="number" id="limit" value="10" min="1" max="100" />
+    <button onclick="searchQuestions()">Szukaj</button>
+</div>
+
+<button onclick="showAddForm()">Dodaj pytanie</button>
+
+<table id="questionsTable" border="1" cellpadding="5" cellspacing="0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Pytanie (A)</th>
+      <th>Podpowiedź (B)</th>
+      <th>Podpowiedź (C)</th>
+      <th>Odpowiedź</th>
+      <th>Data utworzenia</th>
+      <th>Akcje</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div id="formContainer" style="display:none;">
+  <h2 id="formTitle">Dodaj pytanie</h2>
+  <form id="questionForm" onsubmit="return saveQuestion()">
+    <input type="hidden" id="questionId" />
+    <label>Pytanie (A):<br /><textarea id="textA" required minlength="3"></textarea></label><br/>
+    <label>Podpowiedź (B):<br /><textarea id="hintB"></textarea></label><br/>
+    <label>Podpowiedź (C):<br /><textarea id="hintC"></textarea></label><br/>
+    <label>Odpowiedź:<br /><input type="text" id="answer" required /></label><br/>
+    <button type="submit">Zapisz</button>
+    <button type="button" onclick="hideForm()">Anuluj</button>
+  </form>
+</div>
+
+<script>
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => { errorDiv.style.display = 'none'; }, 5000);
+}
+
+function showSuccess(message) {
+    const successDiv = document.getElementById('successMessage');
+    successDiv.textContent = message;
+    successDiv.style.display = 'block';
+    setTimeout(() => { successDiv.style.display = 'none'; }, 3000);
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+async function fetchQuestions() {
+    try {
+        const res = await fetch('/api/questions');
+        if (!res.ok) {
+            throw new Error('Failed to fetch questions');
+        }
+        const questions = await res.json();
+        const tbody = document.querySelector('#questionsTable tbody');
+        tbody.innerHTML = '';
+        for (const q of questions) {
+            const tr = document.createElement('tr');
+            const createdAt = new Date(q.created_at).toLocaleString('pl-PL');
+            tr.innerHTML = `
+                <td>${escapeHtml(String(q.id))}</td>
+                <td>${escapeHtml(q.text_a)}</td>
+                <td>${escapeHtml(q.hint_b || '')}</td>
+                <td>${escapeHtml(q.hint_c || '')}</td>
+                <td>${escapeHtml(q.answer)}</td>
+                <td>${escapeHtml(createdAt)}</td>
+                <td>
+                    <button onclick="editQuestion(${q.id})">Edytuj</button>
+                    <button onclick="deleteQuestion(${q.id})">Usuń</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+    } catch (error) {
+        showError('Błąd podczas pobierania pytań: ' + error.message);
+    }
+}
+
+function showAddForm() {
+    document.getElementById('formTitle').textContent = 'Dodaj pytanie';
+    document.getElementById('questionForm').reset();
+    document.getElementById('questionId').value = '';
+    document.getElementById('formContainer').style.display = 'block';
+}
+
+function hideForm() {
+    document.getElementById('formContainer').style.display = 'none';
+    document.getElementById('questionForm').reset();
+}
+
+async function saveQuestion() {
+    try {
+        const id = document.getElementById('questionId').value;
+        const textA = document.getElementById('textA').value.trim();
+        const hintB = document.getElementById('hintB').value.trim();
+        const hintC = document.getElementById('hintC').value.trim();
+        const answer = document.getElementById('answer').value.trim();
+
+        if (!textA || !answer) {
+            showError('Pytanie i odpowiedź są wymagane.');
+            return false;
+        }
+
+        if (textA.length < 3) {
+            showError('Pytanie musi mieć co najmniej 3 znaki.');
+            return false;
+        }
+
+        const data = { text_a: textA, hint_b: hintB, hint_c: hintC, answer: answer };
+        let url = '/api/questions';
+        let method = 'POST';
+
+        if (id) {
+            url += '/' + encodeURIComponent(id);
+            method = 'PUT';
+        }
+
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => null);
+            throw new Error(errorData?.message || 'Błąd zapisu pytania');
+        }
+
+        showSuccess(id ? 'Pytanie zostało zaktualizowane' : 'Pytanie zostało dodane');
+        hideForm();
+        await fetchQuestions();
+    } catch (error) {
+        showError(error.message);
+    }
+    return false;
+}
+
+async function editQuestion(id) {
+    try {
+        const res = await fetch('/api/questions');
+        if (!res.ok) {
+            throw new Error('Failed to fetch questions');
+        }
+        const questions = await res.json();
+        const q = questions.find(q => q.id === id);
+        if (!q) {
+            throw new Error('Nie znaleziono pytania.');
+        }
+
+        document.getElementById('formTitle').textContent = 'Edytuj pytanie';
+        document.getElementById('questionId').value = q.id;
+        document.getElementById('textA').value = q.text_a;
+        document.getElementById('hintB').value = q.hint_b || '';
+        document.getElementById('hintC').value = q.hint_c || '';
+        document.getElementById('answer').value = q.answer;
+        document.getElementById('formContainer').style.display = 'block';
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+async function deleteQuestion(id) {
+    try {
+        if (!confirm('Na pewno usunąć pytanie?')) return;
+        
+        const res = await fetch('/api/questions/' + encodeURIComponent(id), { 
+            method: 'DELETE'
+        });
+        
+        if (!res.ok) {
+            throw new Error('Błąd usuwania pytania');
+        }
+
+        showSuccess('Pytanie zostało usunięte');
+        await fetchQuestions();
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+async function searchQuestions() {
+    try {
+        const searchData = {
+            search_text: document.getElementById('searchText').value,
+            field: document.getElementById('searchField').value,
+            order_dir: document.getElementById('orderDir').value,
+            limit: parseInt(document.getElementById('limit').value) || 10
+        };
+
+        const res = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchData)
+        });
+
+        if (!res.ok) {
+            throw new Error('Błąd wyszukiwania');
+        }
+
+        const questions = await res.json();
+        const tbody = document.querySelector('#questionsTable tbody');
+        tbody.innerHTML = '';
+        
+        for (const q of questions) {
+            const tr = document.createElement('tr');
+            const createdAt = new Date(q.created_at).toLocaleString('pl-PL');
+            tr.innerHTML = `
+                <td>${escapeHtml(String(q.id))}</td>
+                <td>${escapeHtml(q.text_a)}</td>
+                <td>${escapeHtml(q.hint_b || '')}</td>
+                <td>${escapeHtml(q.hint_c || '')}</td>
+                <td>${escapeHtml(q.answer)}</td>
+                <td>${escapeHtml(createdAt)}</td>
+                <td>
+                    <button onclick="editQuestion(${q.id})">Edytuj</button>
+                    <button onclick="deleteQuestion(${q.id})">Usuń</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+    } catch (error) {
+        showError('Błąd podczas wyszukiwania: ' + error.message);
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    fetchQuestions().catch(error => showError(error.message));
+});
+</script>
 </body>
 </html>
