@@ -1,32 +1,42 @@
-FROM golang:1.21-alpine
+# Build stage
+FROM golang:1.21-alpine AS builder
 
-WORKDIR /app
+WORKDIR /build
 
 # Install build dependencies
 RUN apk add --no-cache gcc musl-dev
 
-# Create necessary directories
-RUN mkdir -p /data /app/static /app/templates
-
-# Copy go mod and sum files
+# Copy go mod files
 COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
 
-# Copy the static files and templates first
-COPY static/ ./static/
-COPY templates/ ./templates/
-
-# Copy the rest of the source code
+# Copy the source code
 COPY . .
 
-# Set proper permissions
-RUN chmod -R 755 /app
-RUN chmod -R 777 /data
-
 # Build the application
-RUN go build -o main .
+RUN CGO_ENABLED=1 GOOS=linux go build -o main .
+
+# Final stage
+FROM alpine:latest
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /data /app/static /app/templates && \
+    chmod -R 755 /app && \
+    chmod -R 777 /data
+
+# Copy binary from builder
+COPY --from=builder /build/main .
+
+# Copy static files and templates
+COPY static/ ./static/
+COPY templates/ ./templates/
 
 # Expose port 8080
 EXPOSE 8080
