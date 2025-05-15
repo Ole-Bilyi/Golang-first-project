@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -85,8 +86,21 @@ func validateQuestion(q *Question) error {
 
 func main() {
 	var err error
-	// Properly assign to global db variable
-	db, err = sql.Open("sqlite", "./db.sqlite")
+
+	// Get database path from environment variable or use default
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "./db.sqlite" // default for local development
+	} else {
+		// Ensure the directory exists
+		dbDir := filepath.Dir(dbPath)
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			log.Fatal("Failed to create database directory:", err)
+		}
+	}
+
+	// Open database connection
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}

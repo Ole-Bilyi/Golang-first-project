@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: quiz-app
+    env: docker
+    buildCommand: go build -o main .
+    startCommand: ./main
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/quiz.db
+    disk:
+      name: quiz-data
+      mountPath: /data
+      sizeGB: 1 
