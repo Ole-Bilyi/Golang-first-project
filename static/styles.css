@@ -116,4 +116,73 @@ textarea:focus, input[type="text"]:focus {
     color: #155724;
     background-color: #d4edda;
     border: 1px solid #c3e6cb;
+}
+
+.search-container select, .search-container input {
+    padding: 5px;
+    margin-right: 10px;
+}
+
+.import-container {
+    background: white;
+    padding: 15px;
+    margin: 20px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.import-container p {
+    color: #666;
+    margin: 5px 0 10px;
+    font-size: 0.9em;
+}
+
+.import-container textarea {
+    width: 100%;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.import-tips {
+    list-style-type: none;
+    padding: 0;
+    margin: 0 0 15px 0;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.import-tips li {
+    margin-bottom: 5px;
+    padding-left: 20px;
+    position: relative;
+}
+
+.import-tips li:before {
+    content: "•";
+    position: absolute;
+    left: 5px;
+    color: #0056b3;
+}
+
+.import-controls {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.separator-select {
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: white;
+    min-width: 120px;
+}
+
+.separator-select:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 0 0.2rem rgba(0,86,179,0.25);
 } 

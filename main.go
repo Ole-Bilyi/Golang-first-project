@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -159,6 +161,7 @@ func main() {
 	api.HandleFunc("/questions/{id}", updateQuestionHandler).Methods("PUT")
 	api.HandleFunc("/questions/{id}", deleteQuestionHandler).Methods("DELETE")
 	api.HandleFunc("/search", searchQuestionsHandler).Methods("POST")
+	api.HandleFunc("/questions/import", importQuestionsHandler).Methods("POST")
 
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
@@ -457,6 +460,152 @@ func searchQuestionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(questions); err != nil {
+		log.Printf("JSON encoding error: %v", err)
+	}
+}
+
+func importQuestionsHandler(w http.ResponseWriter, r *http.Request) {
+	var importData struct {
+		CSVText string `json:"csv_text"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&importData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		log.Printf("JSON decode error: %v", err)
+		return
+	}
+
+	if importData.CSVText == "" {
+		http.Error(w, "CSV text is required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse CSV text
+	reader := csv.NewReader(strings.NewReader(importData.CSVText))
+	reader.Comma = ';' // Use semicolon as separator
+	reader.TrimLeadingSpace = true
+	reader.LazyQuotes = true // Allow quotes within fields
+
+	// Skip header if present
+	_, err := reader.Read()
+	if err != nil && err != io.EOF {
+		http.Error(w, "Failed to read CSV header", http.StatusBadRequest)
+		log.Printf("CSV header read error: %v", err)
+		return
+	}
+
+	var importedQuestions []Question
+	var failedRows []string
+	rowNum := 1
+
+	// Begin transaction
+	tx, err := db.Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		log.Printf("Transaction start error: %v", err)
+		return
+	}
+	defer tx.Rollback()
+
+	// Prepare the insert statement
+	stmt, err := tx.Prepare(`
+		INSERT INTO questions (text_a, hint_b, hint_c, answer, created_at, updated_at) 
+		VALUES (?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
+		log.Printf("Statement preparation error: %v", err)
+		return
+	}
+	defer stmt.Close()
+
+	// Read and process each row
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			failedRows = append(failedRows, fmt.Sprintf("Row %d: Invalid format", rowNum))
+			rowNum++
+			continue
+		}
+
+		// Validate record length
+		if len(record) < 2 { // At minimum, we need text_a and answer
+			failedRows = append(failedRows, fmt.Sprintf("Row %d: Insufficient columns", rowNum))
+			rowNum++
+			continue
+		}
+
+		// Create question from record
+		now := time.Now()
+		q := Question{
+			TextA:  strings.TrimSpace(record[0]),
+			Answer: strings.TrimSpace(record[len(record)-1]), // Last column is always answer
+		}
+
+		// Add hints if provided
+		if len(record) > 2 {
+			q.HintB = strings.TrimSpace(record[1])
+		}
+		if len(record) > 3 {
+			q.HintC = strings.TrimSpace(record[2])
+		}
+
+		// Validate question
+		if err := validateQuestion(&q); err != nil {
+			failedRows = append(failedRows, fmt.Sprintf("Row %d: %v", rowNum, err))
+			rowNum++
+			continue
+		}
+
+		// Insert the question
+		result, err := stmt.Exec(q.TextA, q.HintB, q.HintC, q.Answer, now, now)
+		if err != nil {
+			failedRows = append(failedRows, fmt.Sprintf("Row %d: Database error", rowNum))
+			log.Printf("Row %d insert error: %v", rowNum, err)
+			rowNum++
+			continue
+		}
+
+		id, err := result.LastInsertId()
+		if err != nil {
+			failedRows = append(failedRows, fmt.Sprintf("Row %d: Failed to get ID", rowNum))
+			log.Printf("Row %d LastInsertId error: %v", rowNum, err)
+			rowNum++
+			continue
+		}
+
+		q.ID = int(id)
+		q.CreatedAt = now
+		q.UpdatedAt = now
+		importedQuestions = append(importedQuestions, q)
+		rowNum++
+	}
+
+	// Commit transaction if we have any successful imports
+	if len(importedQuestions) > 0 {
+		if err := tx.Commit(); err != nil {
+			http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+			log.Printf("Transaction commit error: %v", err)
+			return
+		}
+	}
+
+	// Prepare response
+	response := struct {
+		ImportedCount int        `json:"imported_count"`
+		FailedRows    []string   `json:"failed_rows,omitempty"`
+		Questions     []Question `json:"questions"`
+	}{
+		ImportedCount: len(importedQuestions),
+		FailedRows:    failedRows,
+		Questions:     importedQuestions,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("JSON encoding error: %v", err)
 	}
 }
