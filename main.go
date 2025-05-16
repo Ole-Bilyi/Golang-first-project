@@ -10,13 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	_ "modernc.org/sqlite"
 )
 
 type Question struct {
@@ -85,26 +84,21 @@ func validateQuestion(q *Question) error {
 }
 
 func main() {
-	var err error
+	// Database connection parameters
+	dbUser := "Golangfirst_chamberear"
+	dbPass := "61d538d0edb2623c923a555f8c0c77265e57f913"
+	dbHost := "ct4p0.h.filess.io"
+	dbPort := "3305"
+	dbName := "Golangfirst_chamberear"
 
-	// Get database path from environment variable or use default
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./db.sqlite" // default for local development
-	} else {
-		// Ensure the directory exists
-		dbDir := filepath.Dir(dbPath)
-		if err := os.MkdirAll(dbDir, 0755); err != nil {
-			log.Fatal("Failed to create database directory:", err)
-		}
-	}
-
-	log.Printf("Using database at: %s", dbPath)
+	// Build MySQL DSN (Data Source Name)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
 
 	// Open database connection
-	db, err = sql.Open("sqlite", dbPath)
+	var err error
+	db, err = sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to connect to database:", err)
 	}
 	defer db.Close()
 
@@ -122,18 +116,18 @@ func main() {
 	// Create table if not exists
 	createTable := `
 	CREATE TABLE IF NOT EXISTS questions (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id INT AUTO_INCREMENT PRIMARY KEY,
 		text_a TEXT NOT NULL,
 		hint_b TEXT,
 		hint_c TEXT,
 		answer TEXT NOT NULL,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`
 	_, err = db.Exec(createTable)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to create table:", err)
 	}
 	log.Println("Database table checked/created")
 
